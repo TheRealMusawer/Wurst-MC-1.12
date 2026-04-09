@@ -17,55 +17,78 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-     - name: Create AI_CONTEXT directory
-      run: mkdir -p AI_CONTEXT
+      - name: Create AI_CONTEXT directory
+        run: mkdir -p AI_CONTEXT
 
-    - name: Generate FILE_INDEX.txt (list of every file)
-      run: |
-        echo "### FULL FILE INDEX" > AI_CONTEXT/FILE_INDEX.txt
-        find . -type f | sed 's|^\./||' >> AI_CONTEXT/FILE_INDEX.txt
+      - name: Generate FILE_INDEX.txt (list of every file)
+        run: |
+          echo "### FULL FILE INDEX" > AI_CONTEXT/FILE_INDEX.txt
+          find . -type f | sed 's|^\./||' >> AI_CONTEXT/FILE_INDEX.txt
 
-    - name: Generate 2-layer folder structure with combined contents.txt per subfolder
-      run: |
-        for top in */ ; do
-          # Skip internal folders
-          if [[ "$top" == ".git/" ]]; then continue; fi
-          if [[ "$top" == "AI_CONTEXT/" ]]; then continue; fi
+      - name: Generate 3-layer folder structure with combined contents.txt per subfolder
+        run: |
+          for top in */ ; do
+            # Skip internal folders
+            if [[ "$top" == ".git/" ]]; then continue; fi
+            if [[ "$top" == "AI_CONTEXT/" ]]; then continue; fi
 
-          mkdir -p "AI_CONTEXT/${top%/}"
+            mkdir -p "AI_CONTEXT/${top%/}"
 
-          subs=$(find "$top" -mindepth 1 -maxdepth 1 -type d)
+            # Find second-level folders
+            subs=$(find "$top" -mindepth 1 -maxdepth 1 -type d)
 
-          if [[ -z "$subs" ]]; then
-            outfile="AI_CONTEXT/${top%/}/contents.txt"
-            echo "### AI CONTEXT FOR: $top" > "$outfile"
-            find "$top" -type f | while read file; do
-              echo -e "\n=== $file ===" >> "$outfile"
-              cat "$file" >> "$outfile"
-              echo -e "\n" >> "$outfile"
-            done
-            continue
-          fi
+            # If no subfolders, dump files directly
+            if [[ -z "$subs" ]]; then
+              outfile="AI_CONTEXT/${top%/}/contents.txt"
+              echo "### AI CONTEXT FOR: $top" > "$outfile"
+              find "$top" -type f | while read file; do
+                echo -e "\n=== $file ===" >> "$outfile"
+                cat "$file" >> "$outfile"
+                echo -e "\n" >> "$outfile"
+              done
+              continue
+            fi
 
-          for sub in "$top"*/ ; do
-            subname=$(basename "$sub")
-            mkdir -p "AI_CONTEXT/${top%/}/${subname}"
+            # Loop second-level folders
+            for sub in "$top"*/ ; do
+              subname=$(basename "$sub")
+              mkdir -p "AI_CONTEXT/${top%/}/${subname}"
 
-            outfile="AI_CONTEXT/${top%/}/${subname}/contents.txt"
-            echo "### AI CONTEXT FOR: $top$subname" > "$outfile"
+              # Third-level folders
+              thirds=$(find "$sub" -mindepth 1 -maxdepth 1 -type d)
 
-            find "$sub" -type f | while read file; do
-              echo -e "\n=== $file ===" >> "$outfile"
-              cat "$file" >> "$outfile"
-              echo -e "\n" >> "$outfile"
+              # If no third-level folders, dump files directly
+              if [[ -z "$thirds" ]]; then
+                outfile="AI_CONTEXT/${top%/}/${subname}/contents.txt"
+                echo "### AI CONTEXT FOR: $top$subname" > "$outfile"
+                find "$sub" -type f | while read file; do
+                  echo -e "\n=== $file ===" >> "$outfile"
+                  cat "$file" >> "$outfile"
+                  echo -e "\n" >> "$outfile"
+                done
+                continue
+              fi
+
+              # Loop third-level folders → create .txt per folder
+              for third in "$sub"*/ ; do
+                thirdname=$(basename "$third")
+                outfile="AI_CONTEXT/${top%/}/${subname}/${thirdname}.txt"
+
+                echo "### AI CONTEXT FOR: $top$subname$thirdname" > "$outfile"
+
+                find "$third" -maxdepth 1 -type f | while read file; do
+                  echo -e "\n=== $file ===" >> "$outfile"
+                  cat "$file" >> "$outfile"
+                  echo -e "\n" >> "$outfile"
+                done
+              done
+
             done
           done
-        done
 
-
-     - name: Upload AI_CONTEXT artifact (timestamped)
-      uses: actions/upload-artifact@v4
-      with:
-        name: AI_CONTEXT-${{ steps.timestamp.outputs.ts }}
-        path: AI_CONTEXT/
-        compression-level: 9
+      - name: Upload AI_CONTEXT artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI_CONTEXT
+          path: AI_CONTEXT/
+          compression-level: 9
