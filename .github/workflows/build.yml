@@ -28,6 +28,7 @@ jobs:
       - name: Generate 3-layer folder structure with combined contents.txt per subfolder
         run: |
           for top in */ ; do
+            # Skip internal folders
             if [[ "$top" == ".git/" ]]; then continue; fi
             if [[ "$top" == "AI_CONTEXT/" ]]; then continue; fi
 
@@ -35,6 +36,7 @@ jobs:
 
             subs=$(find "$top" -mindepth 1 -maxdepth 1 -type d)
 
+            # If no subfolders, dump files directly
             if [[ -z "$subs" ]]; then
               outfile="AI_CONTEXT/${top%/}/contents.txt"
               echo "### AI CONTEXT FOR: $top" > "$outfile"
@@ -46,12 +48,14 @@ jobs:
               continue
             fi
 
+            # Loop second-level folders
             for sub in "$top"*/ ; do
               subname=$(basename "$sub")
               mkdir -p "AI_CONTEXT/${top%/}/${subname}"
 
               thirds=$(find "$sub" -mindepth 1 -maxdepth 1 -type d)
 
+              # If no third-level folders, dump files directly
               if [[ -z "$thirds" ]]; then
                 outfile="AI_CONTEXT/${top%/}/${subname}/contents.txt"
                 echo "### AI CONTEXT FOR: $top$subname" > "$outfile"
@@ -63,6 +67,7 @@ jobs:
                 continue
               fi
 
+              # Loop third-level folders → create .txt per folder
               for third in "$sub"*/ ; do
                 thirdname=$(basename "$third")
                 outfile="AI_CONTEXT/${top%/}/${subname}/${thirdname}.txt"
