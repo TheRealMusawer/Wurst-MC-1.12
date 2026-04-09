@@ -17,48 +17,55 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build 3-layer AI_CONTEXT
-        run: |
-          mkdir -p AI_CONTEXT
+     - name: Create AI_CONTEXT directory
+      run: mkdir -p AI_CONTEXT
 
-          for top in *; do
-            # Prevent recursion into AI_CONTEXT
-            if [ "$top" = "AI_CONTEXT" ]; then
-              continue
-            fi
+    - name: Generate FILE_INDEX.txt (list of every file)
+      run: |
+        echo "### FULL FILE INDEX" > AI_CONTEXT/FILE_INDEX.txt
+        find . -type f | sed 's|^\./||' >> AI_CONTEXT/FILE_INDEX.txt
 
-            if [ -d "$top" ]; then
-              mkdir -p "AI_CONTEXT/$top"
+    - name: Generate 2-layer folder structure with combined contents.txt per subfolder
+      run: |
+        for top in */ ; do
+          # Skip internal folders
+          if [[ "$top" == ".git/" ]]; then continue; fi
+          if [[ "$top" == "AI_CONTEXT/" ]]; then continue; fi
 
-              for sub in "$top"/*; do
-                if [ -d "$sub" ]; then
-                  mkdir -p "AI_CONTEXT/$top/$(basename "$sub")"
+          mkdir -p "AI_CONTEXT/${top%/}"
 
-                  for third in "$sub"/*; do
-                    if [ -d "$third" ]; then
-                      out="AI_CONTEXT/$top/$(basename "$sub")/$(basename "$third").txt"
+          subs=$(find "$top" -mindepth 1 -maxdepth 1 -type d)
 
-                      echo "### FOLDER: $third" > "$out"
-                      echo "" >> "$out"
+          if [[ -z "$subs" ]]; then
+            outfile="AI_CONTEXT/${top%/}/contents.txt"
+            echo "### AI CONTEXT FOR: $top" > "$outfile"
+            find "$top" -type f | while read file; do
+              echo -e "\n=== $file ===" >> "$outfile"
+              cat "$file" >> "$outfile"
+              echo -e "\n" >> "$outfile"
+            done
+            continue
+          fi
 
-                      # Dump all files inside the 3rd-level folder
-                      find "$third" -maxdepth 1 -type f | while read file; do
-                        echo "----- FILE: $file -----" >> "$out"
-                        cat "$file" >> "$out"
-                        echo "" >> "$out"
-                        echo "" >> "$out"
-                      done
-                    fi
-                  done
+          for sub in "$top"*/ ; do
+            subname=$(basename "$sub")
+            mkdir -p "AI_CONTEXT/${top%/}/${subname}"
 
-                fi
-              done
+            outfile="AI_CONTEXT/${top%/}/${subname}/contents.txt"
+            echo "### AI CONTEXT FOR: $top$subname" > "$outfile"
 
-            fi
+            find "$sub" -type f | while read file; do
+              echo -e "\n=== $file ===" >> "$outfile"
+              cat "$file" >> "$outfile"
+              echo -e "\n" >> "$outfile"
+            done
           done
+        done
 
-      - name: Upload AI_CONTEXT artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AI_CONTEXT
-          path: AI_CONTEXT
+
+     - name: Upload AI_CONTEXT artifact (timestamped)
+      uses: actions/upload-artifact@v4
+      with:
+        name: AI_CONTEXT-${{ steps.timestamp.outputs.ts }}
+        path: AI_CONTEXT/
+        compression-level: 9
