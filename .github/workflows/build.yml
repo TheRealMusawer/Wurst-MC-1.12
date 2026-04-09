@@ -1,58 +1,37 @@
-name: Generate AI_CONTEXT Snapshot
+run: |
+  mkdir -p AI_CONTEXT
 
-on:
-  push:
-    branches:
-      - "**"
-  pull_request:
-    branches:
-      - "**"
-  workflow_dispatch:
+  for top in *; do
+    # Skip AI_CONTEXT to prevent recursion
+    if [ "$top" = "AI_CONTEXT" ]; then
+      continue
+    fi
 
-jobs:
-  generate-context:
-    runs-on: ubuntu-latest
+    if [ -d "$top" ]; then
+      mkdir -p "AI_CONTEXT/$top"
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      for sub in "$top"/*; do
+        if [ -d "$sub" ]; then
+          mkdir -p "AI_CONTEXT/$top/$(basename "$sub")"
 
-      - name: Build 3-layer AI_CONTEXT
-        run: |
-          mkdir -p AI_CONTEXT
+          for third in "$sub"/*; do
+            if [ -d "$third" ]; then
+              out="AI_CONTEXT/$top/$(basename "$sub")/$(basename "$third").txt"
 
-          for top in *; do
-            if [ -d "$top" ]; then
-              mkdir -p "AI_CONTEXT/$top"
+              echo "### FOLDER: $third" > "$out"
+              echo "" >> "$out"
 
-              for sub in "$top"/*; do
-                if [ -d "$sub" ]; then
-                  mkdir -p "AI_CONTEXT/$top/$(basename "$sub")"
-
-                  for third in "$sub"/*; do
-                    if [ -d "$third" ]; then
-                      out="AI_CONTEXT/$top/$(basename "$sub")/$(basename "$third").txt"
-
-                      echo "### FOLDER: $third" > "$out"
-                      echo "" >> "$out"
-
-                      find "$third" -maxdepth 1 -type f | while read file; do
-                        echo "----- FILE: $file -----" >> "$out"
-                        cat "$file" >> "$out"
-                        echo "" >> "$out"
-                        echo "" >> "$out"
-                      done
-                    fi
-                  done
-
-                fi
+              find "$third" -maxdepth 1 -type f | while read file; do
+                echo "----- FILE: $file -----" >> "$out"
+                cat "$file" >> "$out"
+                echo "" >> "$out"
+                echo "" >> "$out"
               done
-
             fi
           done
 
-      - name: Upload AI_CONTEXT artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AI_CONTEXT
-          path: AI_CONTEXT
+        fi
+      done
+
+    fi
+  done
