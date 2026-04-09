@@ -28,16 +28,13 @@ jobs:
       - name: Generate 3-layer folder structure with combined contents.txt per subfolder
         run: |
           for top in */ ; do
-            # Skip internal folders
             if [[ "$top" == ".git/" ]]; then continue; fi
             if [[ "$top" == "AI_CONTEXT/" ]]; then continue; fi
 
             mkdir -p "AI_CONTEXT/${top%/}"
 
-            # Find second-level folders
             subs=$(find "$top" -mindepth 1 -maxdepth 1 -type d)
 
-            # If no subfolders, dump files directly
             if [[ -z "$subs" ]]; then
               outfile="AI_CONTEXT/${top%/}/contents.txt"
               echo "### AI CONTEXT FOR: $top" > "$outfile"
@@ -49,15 +46,12 @@ jobs:
               continue
             fi
 
-            # Loop second-level folders
             for sub in "$top"*/ ; do
               subname=$(basename "$sub")
               mkdir -p "AI_CONTEXT/${top%/}/${subname}"
 
-              # Third-level folders
               thirds=$(find "$sub" -mindepth 1 -maxdepth 1 -type d)
 
-              # If no third-level folders, dump files directly
               if [[ -z "$thirds" ]]; then
                 outfile="AI_CONTEXT/${top%/}/${subname}/contents.txt"
                 echo "### AI CONTEXT FOR: $top$subname" > "$outfile"
@@ -69,14 +63,14 @@ jobs:
                 continue
               fi
 
-              # Loop third-level folders → create .txt per folder
               for third in "$sub"*/ ; do
                 thirdname=$(basename "$third")
                 outfile="AI_CONTEXT/${top%/}/${subname}/${thirdname}.txt"
 
                 echo "### AI CONTEXT FOR: $top$subname$thirdname" > "$outfile"
 
-                find "$third" -maxdepth 1 -type f | while read file; do
+                # FIX: scan ALL files inside third-level folder, including nested folders
+                find "$third" -type f | while read file; do
                   echo -e "\n=== $file ===" >> "$outfile"
                   cat "$file" >> "$outfile"
                   echo -e "\n" >> "$outfile"
